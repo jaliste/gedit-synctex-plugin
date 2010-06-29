@@ -20,28 +20,46 @@
 
 import dbus, subprocess, time
 
+RUNNING, CLOSED = range(2)
+
 class EvinceController:
 	"""A custom object to control an Evince process through DBUS."""
 	daemon = None
+
 	def __init__(self, uri, spawn = False):
 #		self.context = context
 		self.uri = uri
+		self.spawn = spawn
+		self.status = CLOSED
 		bus = dbus.SessionBus()
 		if spawn:
-			self.proc = subprocess.Popen(['/home/jaliste/dev/evince/shell/evince',uri])
-			# THE FOLLOWING IS WRONG!
-			time.sleep(0.3)
+			self.spawn_evince()
+		self.get_dbus_name()
+	
+	def get_dbus_name (self):
 		try:    			
 			if EvinceController.daemon is None:
-				EvinceController.daemon = daemon = bus.get_object('org.gnome.evince.Daemon','/org/gnome/evince/Daemon')
-			self.dbus_name = daemon.FindDocument(uri)
+				print "Conectandose al Evince Daemon"
+				EvinceController.daemon = bus.get_object('org.gnome.evince.Daemon','/org/gnome/evince/Daemon')
+			self.dbus_name = EvinceController.daemon.FindDocument(self.uri)
 			if self.dbus_name != '':
+				self.status = RUNNING
 				print self.dbus_name
 				self.window = bus.get_object(self.dbus_name, '/org/gnome/evince/Window/0')
 				self.window.connect_to_signal("SyncSource", self.sync_source_cb, dbus_interface="org.gnome.evince.Window")
 		except dbus.DBusException:
 			traceback.print_exc()
+	        bus.add_signal_receiver(self.name_owner_changed_cb, signal_name = "NameOwnerChanged")
 
+	def spawn_evince(self):
+		self.proc = subprocess.Popen(['/home/jaliste/dev/evince/shell/evince', self.uri])
+		# THE FOLLOWING IS WRONG!
+		time.sleep(0.3)
+
+	def name_owner_changed_cb(self, service_name, old_owner, new_owner):
+		if service_name == self.dbus_name and new_owner == '': 
+			print "Evince was closed. spawn = ", self.spawn
+			self.status = CLOSED
 	def sync_source_cb(self, source_file, source_point):
 		"""
 		A service call has been received
@@ -65,16 +83,24 @@ class EvinceController:
 		#except KeyError:
 		#	raise("Could not activate tab for file %s" % filename)
 			
-	def forward_search(self, data):
+	def SyncView(self, data):
+		if self.status == CLOSED:
+			if not self.spawn:
+				return
+			self.spawn_evince()
+			self.get_dbus_name()
 		self.window.SyncView('/home/jaliste/Documents/research/articles/rapid_convergence/10.tex',
 		[data, 1],dbus_interface="org.gnome.evince.Window")
 		return False				
+
 if __name__ == '__main__':
 	import dbus.mainloop.glib, gobject, glib
 	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+	bus = dbus.SessionBus()
+
 
  	a = EvinceController('file:///home/jaliste/Documents/research/articles/rapid_convergence/10.pdf', True)
-	glib.timeout_add(10000, a.forward_search, 300)
+	glib.timeout_add(10000, a.SyncView, 300)
 	loop = gobject.MainLoop()
 	
 	loop.run()  
