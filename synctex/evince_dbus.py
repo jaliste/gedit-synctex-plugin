@@ -45,11 +45,15 @@ class EvinceController:
 			if self.dbus_name != '':
 				self.status = RUNNING
 				print self.dbus_name
+				self.window = bus.get_object(self.dbus_name, '/org/gnome/evinve/Application')
 				self.window = bus.get_object(self.dbus_name, '/org/gnome/evince/Window/0')
 				self.window.connect_to_signal("SyncSource", self.sync_source_cb, dbus_interface="org.gnome.evince.Window")
+				self.window.connect_to_signal("Closed", self.on_window_close, dbus_interface="org.gnome.evince.Window")
 		except dbus.DBusException:
 			traceback.print_exc()
-	        bus.add_signal_receiver(self.name_owner_changed_cb, signal_name = "NameOwnerChanged")
+		bus.add_signal_receiver(self.name_owner_changed_cb, signal_name = "NameOwnerChanged")
+	def on_window_close(self):
+		print "Window closed", self.window
 
 	def spawn_evince(self):
 		self.proc = subprocess.Popen(['/home/jaliste/dev/evince/shell/evince', self.uri])
