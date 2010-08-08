@@ -1,0 +1,13 @@
+This is the Gedit Synctex Plugin. 
+
+This is a work in progress to support synctex (both Backward/ForwardSearch)
+using gedit and evince.
+
+One cool thing about the plugin is that it does not require configuration. 
+ 
+To use ForwardSearch, use the Menu Tools->ForwardSearch. 
+To use BackwardSearch, ctrl-click in Evince in the position you want. 
+
+Note: BackwardSearch won't work if the main file used to compile the pdf is not opened in Evince. 
+
+When this plugin is stable enough, it may be moved to gnome repositories.  
