@@ -71,7 +71,7 @@ class SynctexViewHelper:
     def update_uri_mime_type(self):
         uri = self._doc.get_uri()
         if uri is not None and uri != self.uri:
-            self._window.view_dic[uri] = self
+            self._window.get_data(WINDOW_DATA_KEY).view_dict[uri] = self
             self.uri = uri
         if self.uri is not None:
             [self.directory, self.filename] = os.path.split(self.uri[7:])
