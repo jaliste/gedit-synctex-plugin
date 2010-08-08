@@ -27,13 +27,13 @@ RUNNING, CLOSED = range(2)
 class EvinceWindowProxy:
 	"""A DBUS proxy for an Evince Window."""
 	daemon = None
-	sync_source_handler = None
 	bus = None
 	
 	def __init__(self, uri, spawn = False):
 		self.uri = uri
 		self.spawn = spawn
 		self.status = CLOSED
+		self.source_handler = None
 		try: 
 			if EvinceWindowProxy.bus is None:
 				EvinceWindowProxy.bus = dbus.SessionBus()
@@ -51,15 +51,21 @@ class EvinceWindowProxy:
 				self.status = RUNNING
 				#self.window = EvinceWindowProxy.bus.get_object(self.dbus_name, '/org/gnome/evince/Application')
 				self.window = EvinceWindowProxy.bus.get_object(self.dbus_name, '/org/gnome/evince/Window/0')
-				#self.window.connect_to_signal("Closed", self.on_window_close, dbus_interface="org.gnome.evince.Window")
+				self.window.connect_to_signal("Closed", self.on_window_close, dbus_interface="org.gnome.evince.Window")
+				self.window.connect_to_signal("SyncSource", self.on_sync_source, dbus_interface="org.gnome.evince.Window")
 		except dbus.DBusException:
 			print_exc()		
 		#bus.add_signal_receiver(self.name_owner_changed_cb, signal_name = "NameOwnerChanged")
+	def set_source_handler (self, source_handler):
+		self.source_handler = source_handler
 	
 	def on_window_close(self):
 		self.status = CLOSED
 		self.window = None
 
+	def on_sync_source(self, input_file, source_link):
+		if self.source_handler is not None:
+			self.source_handler(input_file, source_link)
 	
 	def name_owner_changed_cb(self, service_name, old_owner, new_owner):
 		if service_name == self.dbus_name and new_owner == '': 
@@ -99,7 +105,7 @@ The usage is evince_dbus output_file line_number input_file from the directory o
 	
 	output_file = sys.argv[1]
 	input_file  = sys.argv[3]
-        path_output  = os.getcwd() + '/' + output_file
+	path_output  = os.getcwd() + '/' + output_file
 	path_input   = os.getcwd() + '/' + input_file
 
 	if not os.path.isfile(path_output):
@@ -109,6 +115,6 @@ The usage is evince_dbus output_file line_number input_file from the directory o
 	bus = dbus.SessionBus()
 
  	a = EvinceWindowProxy(bus, 'file://' + path_output, True )
-        glib.timeout_add(1000, a.SyncView, path_input, (line_number,1))
+	glib.timeout_add(1000, a.SyncView, path_input, (line_number,1))
 	loop = gobject.MainLoop()
 	loop.run() 
