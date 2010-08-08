@@ -133,7 +133,7 @@ class SynctexWindowHelper:
      
         if view_helper.active:
             cursor_iter =  doc.get_iter_at_mark(doc.get_insert())
-            line = cursor_iter.get_line()
+            line = cursor_iter.get_line()+1
             col = cursor_iter.get_line_offset()
             print "syncview", view_helper.uri[7:], (line, col)
             view_helper.window_proxy.SyncView(view_helper.uri[7:], (line, col))
