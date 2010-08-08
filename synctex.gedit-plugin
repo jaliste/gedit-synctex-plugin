@@ -1,0 +1,10 @@
+[Gedit Plugin]
+Loader=python
+Module=synctex
+IAge=2
+Name=synctex
+Description=Synctex support with Evince.
+Icon=gedit-plugin
+Authors=José Aliste <jaliste@src.gnome.org>
+Copyright=Copyright © 2010 José Aliste
+Website=http://github.com/jaliste/gedit-synctex-plugin
