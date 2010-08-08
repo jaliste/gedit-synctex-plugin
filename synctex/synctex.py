@@ -24,7 +24,7 @@ import gedit
 from gettext import gettext as _
 from evince_dbus import EvinceWindowProxy
 import dbus.mainloop.glib
-
+import os.path
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 
@@ -40,6 +40,7 @@ ui_str = """<ui>
 """
 
 VIEW_DATA_KEY = "SynctexPluginViewData"
+WINDOW_DATA_KEY = "SynctexPluginWindowData"
 
 
 class SynctexViewHelper:
@@ -57,6 +58,8 @@ class SynctexViewHelper:
             self._doc.connect('loaded', self.on_saved_or_loaded)
         ]
         self.active = False
+        self.uri = self._doc.get_uri()
+        self.mime_type = self._doc.get_mime_type()
         self.update_uri_mime_type()
 
     def on_saved_or_loaded(self, doc, data):
@@ -66,14 +69,30 @@ class SynctexViewHelper:
         pass
 
     def update_uri_mime_type(self):
-        self.uri = self._doc.get_uri()
+        uri = self._doc.get_uri()
+        if uri is not None and uri != self.uri:
+            self._window.view_dic[uri] = self
+            self.uri = uri
+        if self.uri is not None:
+            [self.directory, self.filename] = os.path.split(self.uri[7:])
         self.mime_type = self._doc.get_mime_type()
         self.update_active()
 
-    def source_view_handler(self, input_file, source_link):
-        self._doc.goto_line(source_link[0]-1) 
+    def goto_line (self, line):
+        self._doc.goto_line(line) 
         self._view.scroll_to_cursor()
         self._window.set_active_tab(self._tab)
+
+    def source_view_handler(self, input_file, source_link):
+        if self.filename == input_file:
+            self.goto_line(source_link[0] - 1)
+        else:
+            uri = "file://" + os.path.join (self.directory,input_file)
+            view_dict = self._window.get_data(WINDOW_DATA_KEY).view_dict
+            if uri in view_dict:
+                view_dict[uri].goto_line(source_link[0] - 1)
+            else:
+                self._window.create_tab_from_uri(uri, None, source_link[0]-1, False, True) 
         self._window.present()
 
     def sync_view(self):
@@ -105,6 +124,7 @@ class SynctexWindowHelper:
         self._window = window
         self._plugin = plugin
         self._insert_menu()
+        self.view_dict = {}
 
         for view in window.get_views():
             self.add_helper(view)
@@ -113,15 +133,19 @@ class SynctexWindowHelper:
             window.connect("tab-added", lambda w, t: self.add_helper(t.get_view(),w, t)),
             window.connect("tab-removed", lambda w, t: self.remove_helper(t.get_view()))
         ]
-        #window.set_data(self.WINDOW_DATA_KEY, (added_hid, removed_hid))
+        #window.set_data(WINDOW_DATA_KEY, (added_hid, removed_hid))
 
         #self._window.connect("destroy", self._on_window_destroyed) ]
 
     def add_helper(self, view, window, tab):
         helper = SynctexViewHelper(view, window, tab)
+        if helper.uri is not None:
+            self.view_dict[helper.uri] = helper
         view.set_data (VIEW_DATA_KEY, helper)
 
     def remove_helper(self, view):
+        if helper.uri is not None:
+            del self.view_dict[uri]
         view.get_data(VIEW_DATA_KEY).deactivate()
         view.set_data(VIEW_DATA_KEY, None)
 
@@ -152,22 +176,21 @@ class SynctexWindowHelper:
         self._window.get_active_view().get_data(VIEW_DATA_KEY).sync_view()
 
 class SynctexPlugin(gedit.Plugin):
-    WINDOW_DATA_KEY = "SynctexPluginWindowData"
     
     def __init__(self):
         gedit.Plugin.__init__(self)
 
     def activate(self, window):
         helper = SynctexWindowHelper(self, window)
-        window.set_data(self.WINDOW_DATA_KEY, helper)
+        window.set_data(WINDOW_DATA_KEY, helper)
     
     def deactivate(self, window):
-        window.get_data(self.WINDOW_DATA_KEY).deactivate()        
-        window.set_data(self.WINDOW_DATA_KEY, None)
+        window.get_data(WINDOW_DATA_KEY).deactivate()        
+        window.set_data(WINDOW_DATA_KEY, None)
         
     def update_ui(self, window):
         pass
-#        window.get_data(self.WINDOW_DATA_KEY).update_ui()
+#        window.get_data(WINDOW_DATA_KEY).update_ui()
 
 
 # ex:ts=4:et:
